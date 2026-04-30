@@ -14,6 +14,8 @@ const ThreadsParser = (() => {
     shares: ["share", "shares", "send"]
   };
   const ACTION_ORDER = ["likes", "replies", "reposts", "shares"];
+  const COMPACT_NUMBER_PATTERN = "\\d+(?:[.,]\\d+)?\\s*(?:K|M|B|rb|jt)?";
+  const COMPACT_NUMBER_REGEX = new RegExp(`^${COMPACT_NUMBER_PATTERN}$`, "i");
 
   // Fallbacks only. Prefer semantic DOM signals above these account-sensitive classes.
   const THREADS_ACTION_ROW_CLASS = "x78zum5";
@@ -115,7 +117,7 @@ const ThreadsParser = (() => {
   }
 
   function looksLikeMetric(text) {
-    return /^\d+(?:[.,]\d+)?\s*[KMB]?$/i.test(text || "");
+    return COMPACT_NUMBER_REGEX.test(text || "");
   }
 
   function parseCompactNumber(value) {
@@ -406,7 +408,7 @@ const ThreadsParser = (() => {
       .filter((text) => !looksLikeTimestamp(text))
       .filter((text) => !looksLikeMetric(text))
       .filter((text) => !/^\d+\/\d+$/.test(text))
-      .filter((text) => !/\bviews?\b/i.test(text))
+      .filter((text) => !/(?:\bviews?\b|\btayangan\b)/i.test(text))
       .filter((text) => !text.startsWith("@"));
 
     if (candidates.length === 0) {
@@ -424,8 +426,8 @@ const ThreadsParser = (() => {
   }
 
   function findMetric(container, names) {
-    const labelPattern = new RegExp(`(\\d+(?:[\\.,]\\d+)?\\s*[KMB]?)\\s+(${names.join("|")})`, "i");
-    const reversePattern = new RegExp(`(${names.join("|")})\\s+(\\d+(?:[\\.,]\\d+)?\\s*[KMB]?)`, "i");
+    const labelPattern = new RegExp(`(${COMPACT_NUMBER_PATTERN})\\s+(${names.join("|")})`, "i");
+    const reversePattern = new RegExp(`(${names.join("|")})\\s+(${COMPACT_NUMBER_PATTERN})`, "i");
     const text = safeText(container) || "";
     const labelMatch = text.match(labelPattern);
     const reverseMatch = text.match(reversePattern);
@@ -588,7 +590,7 @@ const ThreadsParser = (() => {
       .map(safeText)
       .find(looksLikeMetric);
 
-    return parseCompactNumber(metricText || safeText(control)?.match(/\d+(?:[.,]\d+)?\s*[KMB]?/i)?.[0] || null);
+    return parseCompactNumber(metricText || safeText(control)?.match(new RegExp(COMPACT_NUMBER_PATTERN, "i"))?.[0] || null);
   }
 
   function getControlLabel(control) {
@@ -639,8 +641,8 @@ const ThreadsParser = (() => {
       return null;
     }
 
-    const beforeLabel = text.match(/(\d+(?:[.,]\d+)?\s*(?:[KMB]|rb|jt)?)\s*(?:views?|tayangan)\b/i)?.[1];
-    const afterLabel = text.match(/\b(?:views?|tayangan)\s*(\d+(?:[.,]\d+)?\s*(?:[KMB]|rb|jt)?)/i)?.[1];
+    const beforeLabel = text.match(new RegExp(`(${COMPACT_NUMBER_PATTERN})\\s*(?:views?|tayangan)\\b`, "i"))?.[1];
+    const afterLabel = text.match(new RegExp(`\\b(?:views?|tayangan)\\s*(${COMPACT_NUMBER_PATTERN})`, "i"))?.[1];
     return parseCompactNumber(beforeLabel || afterLabel || null);
   }
 
