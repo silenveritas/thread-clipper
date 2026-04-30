@@ -1,5 +1,21 @@
 const ThreadsParser = (() => {
   const POST_PATH_PATTERN = /\/@[^/]+\/post\/[^/?#]+/;
+  const PROFILE_PATH_PATTERN = /\/@([^/?#]+)/;
+  const ACTION_LABELS = {
+    likes: ["Like", "Likes"],
+    replies: ["Reply", "Replies"],
+    reposts: ["Repost", "Reposts"],
+    shares: ["Share", "Shares"]
+  };
+  const ACTION_KEYWORDS = {
+    likes: ["like", "likes"],
+    replies: ["reply", "replies", "comment", "comments"],
+    reposts: ["repost", "reposts", "re-share", "reshare"],
+    shares: ["share", "shares", "send"]
+  };
+  const ACTION_ORDER = ["likes", "replies", "reposts", "shares"];
+
+  // Fallbacks only. Prefer semantic DOM signals above these account-sensitive classes.
   const THREADS_ACTION_ROW_CLASS = "x78zum5";
   const THREADS_USERNAME_AND_VIEW_CLASSES = [
     "x1lliihq",
@@ -7,12 +23,6 @@ const ThreadsParser = (() => {
     "x6ikm8r",
     "x10wlt62",
     "xlyipyv",
-    "xuxw1ft"
-  ];
-  const THREADS_TIME_CLASSES = [
-    "x1rg5ohu",
-    "xnei2rj",
-    "x2b8uid",
     "xuxw1ft"
   ];
   const THREADS_CHAIN_INDICATOR_CLASSES = [
@@ -44,11 +54,16 @@ const ThreadsParser = (() => {
     "Saving",
     "Error",
     "Like",
+    "Likes",
     "Reply",
+    "Replies",
     "Repost",
+    "Reposts",
     "Share",
+    "Shares",
     "Translate",
-    "View activity"
+    "View activity",
+    "Top"
   ]);
 
   function safeText(node) {
@@ -81,6 +96,15 @@ const ThreadsParser = (() => {
     return [...new Set(elements.filter(Boolean))];
   }
 
+  function isElementVisible(element) {
+    if (!element?.getBoundingClientRect) {
+      return false;
+    }
+
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
   function visibleTextLength(element) {
     return (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim().length;
   }
@@ -90,12 +114,87 @@ const ThreadsParser = (() => {
     return rect.width * rect.height;
   }
 
-  function hasMetricText(element) {
-    return looksLikeMetric((element.textContent || "").trim());
+  function looksLikeMetric(text) {
+    return /^\d+(?:[.,]\d+)?\s*[KMB]?$/i.test(text || "");
   }
 
-  function hasThreadsPostClassSignature(element) {
-    return hasAllClasses(element, THREADS_POST_CLASS_SIGNATURE);
+  function parseCompactNumber(value) {
+    if (!value) {
+      return null;
+    }
+
+    const normalized = value.replace(/,/g, ".").trim();
+    const match = normalized.match(/^(\d+(?:\.\d+)?)\s*(K|M|B|rb|jt)?$/i);
+
+    if (!match) {
+      return null;
+    }
+
+    const amount = Number(match[1]);
+    const suffix = match[2]?.toUpperCase();
+    const multiplier = suffix === "K" || suffix === "RB"
+      ? 1_000
+      : suffix === "M" || suffix === "JT"
+        ? 1_000_000
+        : suffix === "B"
+          ? 1_000_000_000
+          : 1;
+
+    return Number.isFinite(amount) ? Math.round(amount * multiplier) : null;
+  }
+
+  function getSvgLabel(svg) {
+    return [
+      svg.getAttribute("aria-label"),
+      svg.getAttribute("title"),
+      svg.querySelector("title")?.textContent,
+      svg.closest("[aria-label]")?.getAttribute("aria-label")
+    ].filter(Boolean).join(" ");
+  }
+
+  function inferActionKey(svg) {
+    const label = getSvgLabel(svg).toLowerCase();
+    const keywordMatch = Object.entries(ACTION_KEYWORDS)
+      .find(([, keywords]) => keywords.some((keyword) => label.includes(keyword)));
+
+    if (keywordMatch) {
+      return keywordMatch[0];
+    }
+
+    const pathData = [...svg.querySelectorAll("path")]
+      .map((path) => path.getAttribute("d") || "")
+      .join(" ");
+
+    if (/M7\.2474 1\.49853|20\.8245 15\.0329|20\.2247 13/.test(pathData)) {
+      return "shares";
+    }
+
+    return null;
+  }
+
+  function getActionSvgs(root) {
+    return [...root.querySelectorAll("svg[aria-label], svg[role='img']")]
+      .filter(isElementVisible)
+      .filter((svg) => inferActionKey(svg));
+  }
+
+  function getVisibleSvgs(root) {
+    return [...root.querySelectorAll("svg[aria-label], svg[role='img'], svg")]
+      .filter(isElementVisible)
+      .filter((svg) => !svg.closest(".threads-personal-clipper-wrap"));
+  }
+
+  function hasActionIcon(container, actionKey) {
+    return getActionSvgs(container).some((svg) => inferActionKey(svg) === actionKey);
+  }
+
+  function getProfileAnchors(container) {
+    return [...container.querySelectorAll("a[href*='/@']")];
+  }
+
+  function getPostAnchors(container) {
+    return [...container.querySelectorAll("a[href*='/post/']")]
+      .filter((anchor) => POST_PATH_PATTERN.test(anchor.getAttribute("href") || ""));
   }
 
   function looksLikePostContainer(element) {
@@ -104,11 +203,21 @@ const ThreadsParser = (() => {
     }
 
     const rect = element.getBoundingClientRect();
-    const hasAuthorLink = Boolean(element.querySelector("a[href*='/@']"));
-    const hasActionControl = Boolean(element.querySelector("button, [role='button']"));
-    const textLength = visibleTextLength(element);
+    const hasProfileOrPostLink = getProfileAnchors(element).length > 0 || getPostAnchors(element).length > 0;
+    const hasTime = Boolean(element.querySelector("time"));
+    const visibleSvgCount = getVisibleSvgs(element).length;
+    const metricCount = [...element.querySelectorAll("span, div")]
+      .filter((node) => node.children.length === 0)
+      .map(safeText)
+      .filter(looksLikeMetric)
+      .length;
+    const actionCount = ["likes", "replies", "reposts", "shares"].filter((action) => hasActionIcon(element, action)).length;
+    const hasShare = hasActionIcon(element, "shares");
+    const hasActions = hasShare || actionCount >= 2 || (visibleSvgCount >= 4 && metricCount >= 1);
+    const hasText = visibleTextLength(element) >= 20;
+    const looksPostSized = rect.width >= 280 && rect.height >= 70;
 
-    return hasAuthorLink && hasActionControl && rect.width >= 280 && rect.height >= 70 && textLength >= 20;
+    return looksPostSized && hasProfileOrPostLink && hasActions && hasText && (hasTime || getPostAnchors(element).length > 0 || hasShare);
   }
 
   function keepSmallestPostContainers(candidates) {
@@ -129,10 +238,10 @@ const ThreadsParser = (() => {
     return selected;
   }
 
-  function closestPostContainerFromLink(link) {
-    let current = link;
+  function closestPostContainerFromElement(element) {
+    let current = element;
 
-    for (let depth = 0; current && current !== document.body && depth < 12; depth += 1) {
+    for (let depth = 0; current && current !== document.body && depth < 14; depth += 1) {
       current = current.parentElement;
 
       if (looksLikePostContainer(current)) {
@@ -145,24 +254,29 @@ const ThreadsParser = (() => {
 
   function findPostContainers(root = document) {
     const candidates = [];
-    const divs = [
-      ...(root.matches?.("div") ? [root] : []),
-      ...root.querySelectorAll("div")
-    ];
-    candidates.push(...divs.filter(hasThreadsPostClassSignature));
-
     const semanticSelectors = "article, [role='article']";
     candidates.push(...[
       ...(root.matches?.(semanticSelectors) ? [root] : []),
       ...root.querySelectorAll(semanticSelectors)
     ]);
 
-    const postLinkSelector = "a[href*='/post/']";
-    const postLinks = [
-      ...(root.matches?.(postLinkSelector) ? [root] : []),
-      ...root.querySelectorAll(postLinkSelector)
+    const anchorsAndTimes = [
+      ...(root.matches?.("a[href*='/@'], a[href*='/post/'], time") ? [root] : []),
+      ...root.querySelectorAll("a[href*='/@'], a[href*='/post/'], time")
     ];
-    candidates.push(...postLinks.map(closestPostContainerFromLink).filter(Boolean));
+    candidates.push(...anchorsAndTimes.map(closestPostContainerFromElement).filter(Boolean));
+
+    const shareSvgs = [
+      ...(root.matches?.("svg[aria-label='Share']") ? [root] : []),
+      ...root.querySelectorAll("svg[aria-label='Share']")
+    ];
+    candidates.push(...shareSvgs.map(closestPostContainerFromElement).filter(Boolean));
+
+    const fallbackDivs = [
+      ...(root.matches?.("div") ? [root] : []),
+      ...root.querySelectorAll("div")
+    ];
+    candidates.push(...fallbackDivs.filter((element) => hasAllClasses(element, THREADS_POST_CLASS_SIGNATURE)));
 
     return keepSmallestPostContainers(candidates);
   }
@@ -188,16 +302,28 @@ const ThreadsParser = (() => {
   }
 
   function findThreadInfo(container) {
-    const chainIndicator = [...container.querySelectorAll("div")]
-      .find((element) => hasAllClasses(element, THREADS_CHAIN_INDICATOR_CLASSES));
-    const indicatorInfo = parseThreadPosition(safeText(chainIndicator));
+    const translateText = [...container.querySelectorAll("span, div")]
+      .map(safeText)
+      .find((text) => /\bTranslate\s+\d+\/\d+\b/i.test(text || ""));
+    const translateInfo = parseThreadPosition(translateText);
 
-    if (indicatorInfo) {
-      return indicatorInfo;
+    if (translateInfo) {
+      return translateInfo;
     }
 
-    const text = safeText(container) || "";
-    return parseThreadPosition(text.match(/\bTranslate\s+\d+\/\d+\b/i)?.[0] || text);
+    const explicitCounter = [...container.querySelectorAll("span, div")]
+      .filter((element) => element.children.length === 0)
+      .map(safeText)
+      .find((text) => /^\d+\/\d+$/.test(text || ""));
+    const counterInfo = parseThreadPosition(explicitCounter);
+
+    if (counterInfo) {
+      return counterInfo;
+    }
+
+    const chainIndicator = [...container.querySelectorAll("div")]
+      .find((element) => hasAllClasses(element, THREADS_CHAIN_INDICATOR_CLASSES));
+    return parseThreadPosition(safeText(chainIndicator));
   }
 
   function absoluteUrl(href) {
@@ -213,45 +339,43 @@ const ThreadsParser = (() => {
   }
 
   function findPostUrl(container) {
-    const anchors = [...container.querySelectorAll("a[href]")];
-    const postLink = anchors.find((anchor) => POST_PATH_PATTERN.test(anchor.getAttribute("href") || ""));
+    const postLink = getPostAnchors(container)[0];
     return absoluteUrl(postLink?.getAttribute("href")) || absoluteUrl(window.location.href);
   }
 
+  function usernameFromUrl(url) {
+    const match = url?.match(PROFILE_PATH_PATTERN);
+    return match?.[1] ? `@${match[1]}` : null;
+  }
+
   function findUsername(container, url) {
-    const username = [...container.querySelectorAll("span")]
-      .filter((element) => hasAllClasses(element, THREADS_USERNAME_AND_VIEW_CLASSES))
-      .map((node) => safeText(node))
-      .find((text) => {
-        if (!text || text.includes("views") || looksLikeTimestamp(text) || looksLikeMetric(text)) {
-          return false;
-        }
-
-        return /^[a-z0-9._]+$/i.test(text);
-      });
-
-    if (username) {
-      return username.startsWith("@") ? username : `@${username}`;
+    const urlUsername = usernameFromUrl(url);
+    if (urlUsername) {
+      return urlUsername;
     }
 
-    const urlMatch = url?.match(/\/@([^/]+)/);
-    return urlMatch?.[1] ? `@${urlMatch[1]}` : null;
+    const profileAnchor = getProfileAnchors(container)
+      .find((anchor) => usernameFromUrl(anchor.getAttribute("href")));
+    const anchorUsername = usernameFromUrl(profileAnchor?.getAttribute("href"));
+    if (anchorUsername) {
+      return anchorUsername;
+    }
+
+    const fallbackUsername = [...container.querySelectorAll("span")]
+      .filter((element) => hasAllClasses(element, THREADS_USERNAME_AND_VIEW_CLASSES))
+      .map(safeText)
+      .find((text) => text && !text.includes("views") && !looksLikeTimestamp(text) && !looksLikeMetric(text) && /^[a-z0-9._]+$/i.test(text));
+
+    return fallbackUsername ? `@${fallbackUsername.replace(/^@/, "")}` : null;
   }
 
   function looksLikeTimestamp(text) {
-    return /^(\d+\s*[smhdw]|now)$/i.test(text);
+    return /^(\d+\s*[smhdw]|now)$/i.test(text || "");
   }
 
   function findPostedAt(container) {
-    const time = [...container.querySelectorAll("time")]
-      .find((element) => hasAllClasses(element, THREADS_TIME_CLASSES)) || container.querySelector("time");
-
+    const time = container.querySelector("time");
     return time?.getAttribute("datetime") || safeText(time);
-  }
-
-  function isElementVisible(element) {
-    const rect = element.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
   }
 
   function isInsideIgnoredElement(element) {
@@ -260,22 +384,19 @@ const ThreadsParser = (() => {
     ));
   }
 
-  function looksLikeMetric(text) {
-    return /^\d+(?:[.,]\d+)?\s*[KMB]?$/i.test(text);
-  }
-
   function getTextBlocks(container) {
     return [...container.querySelectorAll("span, div, [data-lexical-text='true']")]
       .filter((node) => isElementVisible(node) && !isInsideIgnoredElement(node))
       .filter((node) => node.children.length === 0 || node.matches("[data-lexical-text='true']"))
-      .map((node) => safeText(node))
+      .map(safeText)
       .map(cleanPostText)
       .filter(Boolean);
   }
 
   function findPostText(container, username) {
     const ignoredTexts = new Set([
-      username
+      username,
+      username?.replace(/^@/, "")
     ].filter(Boolean));
 
     const candidates = getTextBlocks(container)
@@ -284,13 +405,14 @@ const ThreadsParser = (() => {
       .filter((text) => !/^Translate(?:\s+\d+\/\d+)?$/i.test(text))
       .filter((text) => !looksLikeTimestamp(text))
       .filter((text) => !looksLikeMetric(text))
+      .filter((text) => !/^\d+\/\d+$/.test(text))
+      .filter((text) => !/\bviews?\b/i.test(text))
       .filter((text) => !text.startsWith("@"));
 
     if (candidates.length === 0) {
       return null;
     }
 
-    // Threads often stores each paragraph as its own visible block.
     const paragraphLike = candidates.filter((text) => text.length > 12);
     const uniqueParagraphs = [...new Set(paragraphLike)];
 
@@ -299,25 +421,6 @@ const ThreadsParser = (() => {
     }
 
     return uniqueParagraphs[0] || candidates.sort((a, b) => b.length - a.length)[0] || null;
-  }
-
-  function parseCompactNumber(value) {
-    if (!value) {
-      return null;
-    }
-
-    const normalized = value.replace(/,/g, "").trim();
-    const match = normalized.match(/^(\d+(?:\.\d+)?)\s*([KMB])?$/i);
-
-    if (!match) {
-      return null;
-    }
-
-    const amount = Number(match[1]);
-    const suffix = match[2]?.toUpperCase();
-    const multiplier = suffix === "K" ? 1_000 : suffix === "M" ? 1_000_000 : suffix === "B" ? 1_000_000_000 : 1;
-
-    return Number.isFinite(amount) ? Math.round(amount * multiplier) : null;
   }
 
   function findMetric(container, names) {
@@ -330,51 +433,162 @@ const ThreadsParser = (() => {
     return parseCompactNumber(labelMatch?.[1] || reverseMatch?.[2] || null);
   }
 
-  function getActionControls(container) {
-    return [...container.querySelectorAll("button, [role='button']")]
-      .filter((control) => isElementVisible(control))
-      .filter((control) => !control.closest(".threads-personal-clipper-wrap"));
+  function getActionAncestor(svg, container) {
+    let current = svg;
+
+    for (let depth = 0; current?.parentElement && current.parentElement !== container && depth < 6; depth += 1) {
+      current = current.parentElement;
+
+      if (current.matches?.("button, [role='button']")) {
+        return current;
+      }
+
+      const text = safeText(current) || "";
+      const hasMetric = /\d+(?:[.,]\d+)?\s*[KMB]?/i.test(text);
+      const nearbySvgs = current.querySelectorAll("svg[aria-label], svg[role='img']").length;
+
+      if (hasMetric || nearbySvgs === 1) {
+        return current;
+      }
+    }
+
+    return svg.parentElement;
+  }
+
+  function directChildContaining(parent, descendant) {
+    let current = descendant;
+
+    while (current?.parentElement && current.parentElement !== parent) {
+      current = current.parentElement;
+    }
+
+    return current?.parentElement === parent ? current : null;
+  }
+
+  function actionUnitForSvg(row, svg, container) {
+    const directChild = directChildContaining(row, svg);
+
+    if (directChild && getVisibleSvgs(directChild).length === 1) {
+      return directChild;
+    }
+
+    return getActionAncestor(svg, container);
+  }
+
+  function getFallbackActionItems(container) {
+    const row = findFallbackActionRow(container);
+
+    if (!row) {
+      return [];
+    }
+
+    return getVisibleSvgs(row)
+      .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)
+      .slice(0, ACTION_ORDER.length)
+      .map((svg, index) => ({
+        key: ACTION_ORDER[index],
+        svg,
+        control: actionUnitForSvg(row, svg, container)
+      }))
+      .filter((item) => item.key && item.control);
+  }
+
+  function findActionItems(container) {
+    const semanticItems = getActionSvgs(container)
+      .map((svg) => ({
+        key: inferActionKey(svg),
+        svg,
+        control: getActionAncestor(svg, container)
+      }))
+      .filter((item) => item.key && item.control);
+    const missingSemanticActions = ACTION_ORDER.some((key) => !semanticItems.some((item) => item.key === key));
+
+    if (!missingSemanticActions) {
+      return semanticItems;
+    }
+
+    const fallbackItems = getFallbackActionItems(container);
+    const merged = new Map(semanticItems.map((item) => [item.key, item]));
+
+    for (const item of fallbackItems) {
+      if (!merged.has(item.key)) {
+        merged.set(item.key, item);
+      }
+    }
+
+    return [...merged.values()];
   }
 
   function findThreadsActionRow(container) {
-    const rows = [...container.querySelectorAll(`div.${THREADS_ACTION_ROW_CLASS}`)]
-      .filter((row) => isElementVisible(row))
-      .filter((row) => !row.closest(".threads-personal-clipper-wrap"))
-      .filter((row) => {
-        const hasShareIcon = Boolean(row.querySelector("svg[aria-label='Share']"));
-        if (!hasShareIcon) {
-          return false;
-        }
+    const actionItems = findActionItems(container);
+    const shareItem = actionItems.find((item) => item.key === "shares");
 
-        const controls = [...row.querySelectorAll("button, [role='button']")]
-          .filter(isElementVisible);
-        const metricCount = [...row.querySelectorAll("span, div")]
-          .filter((element) => element.children.length === 0)
-          .map(safeText)
-          .filter(looksLikeMetric)
-          .length;
+    if (!shareItem) {
+      return null;
+    }
 
-        return controls.length >= 2 || metricCount >= 2;
-      });
+    let current = shareItem.control;
 
-    return rows
+    for (let depth = 0; current && current !== container && depth < 8; depth += 1) {
+      const actionCount = actionItems.filter((item) => current.contains(item.control)).length;
+
+      if (actionCount >= 3) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return [...container.querySelectorAll(`div.${THREADS_ACTION_ROW_CLASS}`)]
+      .filter((row) => isElementVisible(row) && row.querySelector("svg[aria-label='Share']"))
       .sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0] || null;
   }
 
-  function findShareControl(container) {
-    const shareSvg = container.querySelector("svg[aria-label='Share']");
+  function findFallbackActionRow(container) {
+    const rows = [...container.querySelectorAll("div, [role='group']")]
+      .filter(isElementVisible)
+      .filter((row) => {
+        const svgs = getVisibleSvgs(row);
+        const metrics = [...row.querySelectorAll("span, div")]
+          .filter((element) => element.children.length === 0)
+          .map(safeText)
+          .filter(looksLikeMetric);
 
-    if (!shareSvg) {
+        return svgs.length >= 4 && metrics.length >= 1;
+      });
+
+    return rows
+      .sort((a, b) => {
+        const aRect = a.getBoundingClientRect();
+        const bRect = b.getBoundingClientRect();
+        const areaDiff = elementArea(a) - elementArea(b);
+        return areaDiff || bRect.top - aRect.top;
+      })[0] || null;
+  }
+
+  function findShareControl(container) {
+    const shareItem = findActionItems(container).find((item) => item.key === "shares");
+    if (!shareItem) {
       return null;
     }
 
     const actionRow = findThreadsActionRow(container);
+    return actionRow
+      ? [...actionRow.children].find((child) => child.contains(shareItem.svg)) || shareItem.control
+      : shareItem.control;
+  }
 
-    if (actionRow) {
-      return [...actionRow.children].find((child) => child.contains(shareSvg)) || null;
+  function metricFromControl(control) {
+    if (!control) {
+      return null;
     }
 
-    return null;
+    const metricText = [...control.querySelectorAll("span, div")]
+      .filter((element) => element.children.length === 0)
+      .map(safeText)
+      .find(looksLikeMetric);
+
+    return parseCompactNumber(metricText || safeText(control)?.match(/\d+(?:[.,]\d+)?\s*[KMB]?/i)?.[0] || null);
   }
 
   function getControlLabel(control) {
@@ -386,19 +600,16 @@ const ThreadsParser = (() => {
   }
 
   function findMetricFromActions(container, names) {
-    const controls = getActionControls(container);
     const pattern = new RegExp(names.join("|"), "i");
 
-    for (const control of controls) {
-      const label = getControlLabel(control);
+    for (const item of findActionItems(container)) {
+      const label = `${getSvgLabel(item.svg)} ${getControlLabel(item.control)}`;
 
       if (!pattern.test(label)) {
         continue;
       }
 
-      const value = label.match(/\d+(?:[.,]\d+)?\s*[KMB]?/i)?.[0];
-      const parsed = parseCompactNumber(value);
-
+      const parsed = metricFromControl(item.control);
       if (parsed !== null) {
         return parsed;
       }
@@ -414,83 +625,37 @@ const ThreadsParser = (() => {
       reposts: null,
       shares: null
     };
+    const byKey = new Map(findActionItems(container).map((item) => [item.key, item]));
 
-    const actionRow = findThreadsActionRow(container);
-    const metricSource = actionRow
-      ? [...actionRow.querySelectorAll("span, div")].filter((element) => element.children.length === 0)
-      : getActionControls(container);
-    const values = metricSource
-      .map((element) => safeText(element)?.match(/^\d+(?:[.,]\d+)?\s*[KMB]?$/i)?.[0] || null)
-      .map(parseCompactNumber)
-      .filter((value) => value !== null);
-
-    if (values.length >= 4) {
-      [metrics.likes, metrics.replies, metrics.reposts, metrics.shares] = values;
-    } else if (values.length === 3) {
-      [metrics.likes, metrics.reposts, metrics.shares] = values;
-    } else if (values.length === 2) {
-      [metrics.likes, metrics.reposts] = values;
-    } else if (values.length === 1) {
-      [metrics.likes] = values;
+    for (const key of ACTION_ORDER) {
+      metrics[key] = metricFromControl(byKey.get(key)?.control);
     }
 
     return metrics;
   }
 
   function parseViewsFromText(text) {
-    if (!text || !/\bviews?\b/i.test(text)) {
+    if (!text || !/(?:\bviews?\b|\btayangan\b)/i.test(text)) {
       return null;
     }
 
-    const beforeLabel = text.match(/(\d+(?:[.,]\d+)?\s*[KMB]?)\s*views?\b/i)?.[1];
-    const afterLabel = text.match(/\bviews?\s*(\d+(?:[.,]\d+)?\s*[KMB]?)/i)?.[1];
+    const beforeLabel = text.match(/(\d+(?:[.,]\d+)?\s*(?:[KMB]|rb|jt)?)\s*(?:views?|tayangan)\b/i)?.[1];
+    const afterLabel = text.match(/\b(?:views?|tayangan)\s*(\d+(?:[.,]\d+)?\s*(?:[KMB]|rb|jt)?)/i)?.[1];
     return parseCompactNumber(beforeLabel || afterLabel || null);
   }
 
-  function closestTextWithViews(element, container) {
-    let current = element;
-
-    for (let depth = 0; current && current !== container && depth < 4; depth += 1) {
-      const text = safeText(current);
-
-      if (/\bviews?\b/i.test(text || "")) {
-        return text;
-      }
-
-      current = current.parentElement;
-    }
-
-    return null;
-  }
-
   function findViews(container) {
-    const signatureElements = uniqueElements([
-      ...container.querySelectorAll("span"),
-      ...document.querySelectorAll("span")
-    ])
-      .filter((element) => hasAllClasses(element, THREADS_USERNAME_AND_VIEW_CLASSES));
-    const directView = signatureElements
-      .map(safeText)
-      .map(parseViewsFromText)
-      .find((views) => views !== null);
-
-    if (directView !== undefined) {
-      return directView;
-    }
-
-    const signatureTexts = signatureElements.flatMap((element) => [
-      safeText(element),
-      closestTextWithViews(element, container)
-    ]);
-    const allTexts = [
-      ...signatureTexts,
+    const texts = [
       ...[...container.querySelectorAll("span, div")]
         .filter((element) => element.children.length === 0)
+        .map(safeText),
+      ...[...document.querySelectorAll("span")]
+        .filter((element) => hasAllClasses(element, THREADS_USERNAME_AND_VIEW_CLASSES))
         .map(safeText),
       safeText(container)
     ].filter(Boolean);
 
-    for (const text of allTexts) {
+    for (const text of texts) {
       const views = parseViewsFromText(text);
 
       if (views !== null) {
@@ -560,10 +725,10 @@ const ThreadsParser = (() => {
       },
       text,
       metrics: {
-        likes: readValue(() => findMetricFromActions(container, ["like", "likes"]) ?? findMetric(container, ["like", "likes"]), orderedMetrics.likes) ?? orderedMetrics.likes,
-        replies: readValue(() => findMetricFromActions(container, ["reply", "replies"]) ?? findMetric(container, ["reply", "replies"]), orderedMetrics.replies) ?? orderedMetrics.replies,
-        reposts: readValue(() => findMetricFromActions(container, ["repost", "reposts"]) ?? findMetric(container, ["repost", "reposts"]), orderedMetrics.reposts) ?? orderedMetrics.reposts,
-        shares: readValue(() => findMetricFromActions(container, ["share", "shares"]), orderedMetrics.shares) ?? orderedMetrics.shares,
+        likes: readValue(() => findMetricFromActions(container, ACTION_LABELS.likes) ?? findMetric(container, ACTION_LABELS.likes), orderedMetrics.likes) ?? orderedMetrics.likes,
+        replies: readValue(() => findMetricFromActions(container, ACTION_LABELS.replies) ?? findMetric(container, ACTION_LABELS.replies), orderedMetrics.replies) ?? orderedMetrics.replies,
+        reposts: readValue(() => findMetricFromActions(container, ACTION_LABELS.reposts) ?? findMetric(container, ACTION_LABELS.reposts), orderedMetrics.reposts) ?? orderedMetrics.reposts,
+        shares: readValue(() => findMetricFromActions(container, ACTION_LABELS.shares), orderedMetrics.shares) ?? orderedMetrics.shares,
         views
       },
       thread,

@@ -81,13 +81,12 @@ If saving, parsing, or button placement breaks, inspect a working Threads post a
 Where to update code:
 
 - `src/parser.js`
-  - `THREADS_POST_CLASS_SIGNATURE`: update when the one-post container class changes.
-  - `THREADS_ACTION_ROW_CLASS`: update when the Like/Reply/Repost/Share row class changes.
-  - `THREADS_USERNAME_AND_VIEW_CLASSES`: update when username or views span classes change.
-  - `THREADS_TIME_CLASSES`: update when the post `<time>` classes change.
-  - `THREADS_CHAIN_INDICATOR_CLASSES`: update when the `1/9` chain badge classes change.
+  - Prefer semantic signals first: `time`, profile/post links, `svg[aria-label]`, visible text, and nearby action wrappers.
+  - `ACTION_LABELS`: update when Threads changes action icon labels like Like, Reply, Repost, or Share.
   - `findPostContainers()`: update when post container detection breaks.
   - `findShareControl()`: update when the Share icon/wrapper structure changes.
+  - `THREADS_USERNAME_AND_VIEW_CLASSES`: update when username or views span classes change.
+  - `THREADS_CHAIN_INDICATOR_CLASSES`: update when the `1/9` chain badge classes change.
   - `findPostText()`: update when the text body starts including UI text again.
   - `findMetricsByActionOrder()`: update if Threads changes the order of Like, Reply, Repost, Share.
 
