@@ -1,0 +1,283 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+  background: #fafafa;
+  color: #171717;
+}
+
+.header {
+  align-items: center;
+  border-bottom: 1px solid #e4e4e4;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+h1 {
+  font-size: 16px;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.count {
+  background: #eeeeee;
+  border-radius: 999px;
+  font-size: 12px;
+  min-width: 24px;
+  padding: 3px 8px;
+  text-align: center;
+}
+
+main {
+  padding: 12px 16px 16px;
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr auto;
+  margin-bottom: 12px;
+}
+
+.filters {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 12px;
+}
+
+.filter-field {
+  display: grid;
+  gap: 4px;
+}
+
+.filter-field:first-child {
+  grid-column: 1 / -1;
+}
+
+.filter-field span {
+  color: #666666;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.filter-field input,
+.filter-field select {
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font: 13px/1.25 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 8px;
+  width: 100%;
+}
+
+button {
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #171717;
+  cursor: pointer;
+  font: 600 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 9px 10px;
+}
+
+button:hover {
+  background: #f1f1f1;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.danger {
+  color: #9f1239;
+}
+
+.empty {
+  color: #686868;
+  font-size: 13px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.clip-list {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  max-height: 420px;
+  overflow: auto;
+  padding: 0;
+}
+
+.pagination {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto 1fr auto;
+  margin-top: 12px;
+}
+
+.pagination span {
+  color: #666666;
+  font-size: 12px;
+  text-align: center;
+}
+
+.clip {
+  background: #ffffff;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.clip-meta {
+  color: #5f5f5f;
+  display: flex;
+  font-size: 12px;
+  gap: 6px;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.clip-text {
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.clip-thread {
+  color: #666666;
+  font-size: 12px;
+  font-weight: 700;
+  margin: -2px 0 7px;
+}
+
+.clip-metrics-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.clip-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin: 0;
+}
+
+.clip-metrics dt {
+  color: #666666;
+  font-size: 11px;
+  margin: 0;
+}
+
+.clip-metrics dd {
+  color: #222222;
+  font-size: 11px;
+  font-weight: 700;
+  margin: 0 4px 0 -4px;
+}
+
+.clip-type {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 4px 7px;
+}
+
+.clip-type.is-single {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.clip-type.is-thread {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.clip-link {
+  color: #0f5f99;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.clip-link:hover {
+  text-decoration: underline;
+}
+
+.clip-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.small-button {
+  font-size: 12px;
+  padding: 7px 9px;
+}
+
+.clip-footer {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.clip-post-info {
+  color: #666666;
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.edit-form {
+  border-top: 1px solid #eeeeee;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.edit-field {
+  display: grid;
+  gap: 4px;
+}
+
+.edit-field span {
+  color: #666666;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.edit-field input,
+.edit-field textarea {
+  border: 1px solid #d4d4d4;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font: 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  padding: 7px 8px;
+  width: 100%;
+}
+
+.edit-field input[type="checkbox"] {
+  justify-self: start;
+  width: auto;
+}
+
+.edit-controls {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}

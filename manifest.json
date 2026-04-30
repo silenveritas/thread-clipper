@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Threads Personal Clipper",
+  "version": "0.1.0",
+  "description": "Local-only manual clipping for Threads posts.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.threads.com/*"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.threads.com/*"],
+      "js": ["src/parser.js", "src/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Threads Personal Clipper",
+    "default_popup": "src/popup.html"
+  }
+}

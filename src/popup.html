@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Threads Personal Clipper</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <header class="header">
+      <h1>Threads Clipper</h1>
+      <span id="clip-count" class="count">0</span>
+    </header>
+
+    <main>
+      <div class="actions">
+        <button id="export-json" type="button">Export JSON</button>
+        <button id="import-json" type="button">Import JSON</button>
+        <button id="clear-clips" type="button" class="danger">Clear</button>
+        <input id="import-file" type="file" accept="application/json,.json" hidden>
+      </div>
+
+      <section class="filters" aria-label="Clip filters">
+        <label class="filter-field">
+          <span>Search</span>
+          <input id="search-clips" type="search" placeholder="Keyword">
+        </label>
+
+        <label class="filter-field">
+          <span>Date sort</span>
+          <select id="date-sort">
+            <option value="">None</option>
+            <option value="postedAt">Tanggal Post Terbaru</option>
+            <option value="savedAt">Tanggal Clip Terbaru</option>
+          </select>
+        </label>
+
+        <label class="filter-field">
+          <span>Metric sort</span>
+          <select id="metric-sort">
+            <option value="">None</option>
+            <option value="likes">Likes Terbanyak</option>
+            <option value="views">Views Terbanyak</option>
+            <option value="replies">Reply Terbanyak</option>
+            <option value="reposts">Repost Terbanyak</option>
+            <option value="shares">Share Terbanyak</option>
+          </select>
+        </label>
+      </section>
+
+      <p id="empty-state" class="empty">No saved clips yet.</p>
+      <ul id="clip-list" class="clip-list"></ul>
+
+      <nav class="pagination" aria-label="Clip pages">
+        <button id="prev-page" type="button">Prev</button>
+        <span id="page-status">Page 1 / 1</span>
+        <button id="next-page" type="button">Next</button>
+      </nav>
+    </main>
+
+    <script src="storage.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
