@@ -322,9 +322,29 @@ function createMetrics(clip) {
   return row;
 }
 
+function normalizeSearchValue(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function getUsernameSearchValues(username) {
+  const normalized = normalizeSearchValue(username);
+
+  if (!normalized) {
+    return [];
+  }
+
+  const withoutAt = normalized.replace(/^@/, "");
+  return [...new Set([normalized, withoutAt, `@${withoutAt}`])];
+}
+
 function getSearchText(clip) {
   return [
+    ...getUsernameSearchValues(clip.author?.username),
+    ...getUsernameSearchValues(clip.author?.displayName),
     clip.author?.username,
+    clip.author?.displayName,
     clip.text,
     clip.url,
     clip.postedAt,
@@ -366,9 +386,14 @@ function compareClips(a, b) {
 }
 
 function getVisibleClips() {
-  const keyword = searchInput.value.trim().toLowerCase();
+  const keyword = normalizeSearchValue(searchInput.value);
+  const usernameKeyword = keyword.replace(/^@/, "");
+  const keywords = [...new Set([keyword, usernameKeyword].filter(Boolean))];
   const filtered = keyword
-    ? currentClips.filter((clip) => getSearchText(clip).includes(keyword))
+    ? currentClips.filter((clip) => {
+        const searchText = getSearchText(clip);
+        return keywords.some((item) => searchText.includes(item));
+      })
     : [...currentClips];
 
   return filtered.sort(compareClips);
