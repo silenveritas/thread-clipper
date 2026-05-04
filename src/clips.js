@@ -124,6 +124,63 @@ function createClipFooter(clip) {
   return footer;
 }
 
+function splitTextBlocks(text) {
+  return String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
+function parseBulletLine(line) {
+  const match = line.trim().match(/^[-*•]\s+(.+)$/);
+  return match?.[1] || null;
+}
+
+function createFormattedText(text, className) {
+  const wrapper = document.createElement("div");
+  wrapper.className = className;
+
+  const blocks = splitTextBlocks(text);
+
+  if (blocks.length === 0) {
+    const empty = document.createElement("p");
+    empty.textContent = "No text captured.";
+    wrapper.appendChild(empty);
+    return wrapper;
+  }
+
+  blocks.forEach((block) => {
+    const lines = block
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const bulletItems = lines.map(parseBulletLine);
+    const isBulletList = bulletItems.length > 0 && bulletItems.every(Boolean);
+
+    if (isBulletList) {
+      const list = document.createElement("ul");
+
+      bulletItems.forEach((itemText) => {
+        const item = document.createElement("li");
+        item.textContent = itemText;
+        list.appendChild(item);
+      });
+
+      wrapper.appendChild(list);
+      return;
+    }
+
+    lines.forEach((line) => {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = line;
+      wrapper.appendChild(paragraph);
+    });
+  });
+
+  return wrapper;
+}
+
 function createClipItem(clip) {
   const item = document.createElement("li");
   item.className = `clip ${clip.id === selectedClipId ? "is-selected" : ""}`;
@@ -147,10 +204,7 @@ function createClipItem(clip) {
     item.appendChild(thread);
   }
 
-  const text = document.createElement("p");
-  text.className = "clip-text";
-  text.textContent = clip.text || "No text captured.";
-  item.appendChild(text);
+  item.appendChild(createFormattedText(clip.text, "clip-text"));
 
   item.appendChild(createMetrics(clip));
   item.appendChild(createClipFooter(clip));
@@ -301,9 +355,7 @@ function renderDetail(clip) {
   heading.textContent = clip.author?.username || "Unknown author";
   title.append(heading, createTypeBadge(clip));
 
-  const text = document.createElement("p");
-  text.className = "detail-text";
-  text.textContent = clip.text || "No text captured.";
+  const text = createFormattedText(clip.text, "detail-text");
 
   const metadataSection = document.createElement("section");
   metadataSection.className = "detail-section";
