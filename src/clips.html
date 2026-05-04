@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Threads Clipper Library</title>
+    <link rel="stylesheet" href="clips.css">
+  </head>
+  <body>
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Threads Personal Clipper</p>
+        <h1>Clip Library</h1>
+      </div>
+      <div class="header-actions">
+        <button id="refresh-clips" type="button" title="Refresh clips" aria-label="Refresh clips">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.45 10.92l-1.87-.7A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h8V3l-3.35 3.35Z"></path>
+          </svg>
+        </button>
+        <button id="export-json" type="button">Export JSON</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="library-panel" aria-label="Saved clips">
+        <div class="toolbar">
+          <label class="field search-field">
+            <span>Search</span>
+            <input id="search-clips" type="search" placeholder="Keyword or username">
+          </label>
+
+          <label class="field">
+            <span>Date sort</span>
+            <select id="date-sort">
+              <option value="">None</option>
+              <option value="postedAt">Tanggal Post Terbaru</option>
+              <option value="savedAt">Tanggal Clip Terbaru</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Metric sort</span>
+            <select id="metric-sort">
+              <option value="">None</option>
+              <option value="likes">Likes Terbanyak</option>
+              <option value="views">Views Terbanyak</option>
+              <option value="replies">Reply Terbanyak</option>
+              <option value="reposts">Repost Terbanyak</option>
+              <option value="shares">Share Terbanyak</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="summary-grid" aria-label="Clip summary">
+          <div>
+            <span>Total clips</span>
+            <strong id="total-count">0</strong>
+          </div>
+          <div>
+            <span>Visible</span>
+            <strong id="visible-count">0</strong>
+          </div>
+          <div>
+            <span>Long</span>
+            <strong id="long-count">0</strong>
+          </div>
+          <div>
+            <span>Short</span>
+            <strong id="short-count">0</strong>
+          </div>
+        </div>
+
+        <p id="empty-state" class="empty">No saved clips yet.</p>
+        <ul id="clip-list" class="clip-list"></ul>
+
+        <nav class="pagination" aria-label="Clip pages">
+          <button id="prev-page" type="button">Prev</button>
+          <span id="page-status">Page 1 / 1</span>
+          <button id="next-page" type="button">Next</button>
+        </nav>
+      </section>
+
+      <aside class="detail-panel" aria-label="Clip details">
+        <p class="eyebrow">Details</p>
+        <div id="detail-content" class="detail-content">
+          <p class="empty">Select a clip to inspect the full saved data.</p>
+        </div>
+      </aside>
+    </main>
+
+    <script src="storage.js"></script>
+    <script src="clips.js"></script>
+  </body>
+</html>

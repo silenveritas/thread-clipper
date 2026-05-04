@@ -18,6 +18,33 @@ body {
   padding: 14px 16px;
 }
 
+.header-tools {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.icon-link {
+  align-items: center;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  color: #333333;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.icon-link:hover {
+  background: #f1f1f1;
+}
+
+.icon-link svg {
+  fill: currentColor;
+  height: 16px;
+  width: 16px;
+}
+
 h1 {
   font-size: 16px;
   line-height: 1.2;

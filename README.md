@@ -20,6 +20,7 @@ Known Threads class names are still kept in `src/parser.js`, but only as fallbac
 - Saves only posts that you manually click.
 - Stores clips locally with `chrome.storage.local`.
 - Shows saved clips in the extension popup.
+- Provides a full-screen clip library page from the popup header icon.
 - Supports popup search, sorting, and pagination.
 - Supports editing, deleting, clearing, importing, and exporting saved clips as JSON.
 - Labels clips as **Short** for single posts and **Long** for chain/thread posts.
@@ -40,6 +41,7 @@ Known Threads class names are still kept in `src/parser.js`, but only as fallbac
 5. Visit `https://www.threads.com/`.
 6. Use the injected **Save** button on posts you want to keep.
 7. Open the extension popup to view, clear, or export saved clips.
+8. Click the header icon in the popup to open the full-screen clip library.
 
 ## Data Schema
 
@@ -113,5 +115,9 @@ Where to update code:
 
 - `src/content.js`
   - Change this only for extension behavior or style, such as Save button text, click handling, scan frequency, or injected button CSS.
+
+- `src/clips.html`, `src/clips.js`, and `src/clips.css`
+  - Full-screen library view for inspecting saved clips in more detail.
+  - Extend these files for future library features such as richer filtering, bulk actions, tags, or detail workflows.
 
 After editing, reload the unpacked extension at `chrome://extensions` and refresh the Threads page.
